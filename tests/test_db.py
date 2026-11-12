@@ -1,4 +1,8 @@
-from app.db import get_connection, run_query
+# app.db must be imported FIRST: it tells Python where PostgreSQL's libpq.dll is.
+from app.db import get_connection, get_schema, run_query
+
+import psycopg  # noqa: E402
+import pytest  # noqa: E402
 
 
 def test_can_connect():
@@ -7,12 +11,8 @@ def test_can_connect():
 
 
 def test_film_table_has_rows():
-    rows = run_query("SELECT COUNT(*) AS total FROM film;")
+    rows = run_query("SELECT COUNT(*) AS total FROM film")
     assert rows[0]["total"] > 0
-import psycopg
-import pytest
-
-from app.db import get_schema, run_query
 
 
 def test_customer_count():
@@ -32,3 +32,13 @@ def test_schema_includes_film_table():
 def test_writes_are_blocked():
     with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
         run_query("DELETE FROM actor WHERE actor_id = -1")
+
+
+def test_row_limit():
+    rows = run_query("SELECT * FROM rental", max_rows=10)
+    assert len(rows) == 10
+
+
+def test_slow_query_is_cancelled():
+    with pytest.raises(psycopg.errors.QueryCanceled):
+        run_query("SELECT pg_sleep(10)")
